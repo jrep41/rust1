@@ -19,8 +19,8 @@ enum Action {
 /// Traduce una tecla a una acción. Esta parte se puede probar sin teclado.
 fn action_for(key: Key) -> Action {
     match key {
-        Key::Char('n') | Key::Char('N') => Action::Next,
-        Key::Char('p') | Key::Char('P') => Action::Previous,
+        Key::Char('n') | Key::Char('N') | Key::ArrowRight => Action::Next,
+        Key::Char('p') | Key::Char('P') | Key::ArrowLeft => Action::Previous,
         Key::Char('q') | Key::Char('Q') => Action::Quit,
         _ => Action::Nothing,
     }
@@ -130,7 +130,9 @@ fn main() {
         print!("\x1b[2J\x1b[H");
         print!("{}", month_as_text(year, month, today));
         println!();
-        println!("n = mes siguiente   p = mes anterior   q = salir");
+        println!("n o -> (flecha derecha) = mes siguiente");
+        println!("p o <- (flecha izquierda) = mes anterior");
+        println!("q = salir");
         println!("Pulsa la tecla directamente, sin Enter.");
 
         // read_key espera a UNA tecla y la devuelve enseguida.
@@ -202,7 +204,10 @@ mod tests {
     fn keys_map_to_actions() {
         assert_eq!(action_for(Key::Char('n')), Action::Next);
         assert_eq!(action_for(Key::Char('P')), Action::Previous);
+        assert_eq!(action_for(Key::ArrowRight), Action::Next);
+        assert_eq!(action_for(Key::ArrowLeft), Action::Previous);
         assert_eq!(action_for(Key::Char('q')), Action::Quit);
+        // Una tecla que no nos interesa no debe hacer nada.
         assert_eq!(action_for(Key::Enter), Action::Nothing);
     }
 }
