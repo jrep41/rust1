@@ -21,6 +21,7 @@ Un calendario de consola escrito en **Rust** desde cero: muestra un mes, cambia 
 13. [Chuleta de comandos](#13-chuleta-de-comandos)
 14. [Glosario](#14-glosario)
 15. [Ideas para seguir](#15-ideas-para-seguir)
+16. [Errores de compilación frecuentes](#16-errores-de-compilación-frecuentes-y-qué-significan)
 
 ---
 
@@ -98,6 +99,38 @@ time = { version = "0.3", features = ["local-offset"] }
 ---
 
 ## 5. El código, función por función
+
+### El flujo del programa, de un vistazo
+
+```
+   INICIO
+     │
+     ├─ 1. ¿Qué día es hoy?      →  OffsetDateTime::now_local()
+     │                              hoy = (año, mes, día)
+     │
+     ├─ 2. Pide el año y el mes  →  read_number()   (se confirma con Enter)
+     │                              ¿mes entre 1 y 12?  ── no ──►  mensaje y FIN
+     │
+     └─ 3. BUCLE PRINCIPAL (se repite hasta que se pulse q)
+          │
+          ├─ dibuja:  month_as_text(año, mes, hoy)  →  se imprime en pantalla
+          │
+          ├─ espera:  term.read_key()   (una tecla, sin Enter)
+          │
+          ├─ decide:  action_for(tecla)
+          │     ├─ Next      →  mes + 1   (si pasa a enero, año + 1)
+          │     ├─ Previous  →  mes - 1   (si pasa a diciembre, año - 1)
+          │     ├─ Nothing   →  no hace nada, se vuelve a dibujar
+          │     └─ Quit      →  break
+          │
+          └─────────────────────►  vuelve a «dibuja»   (el bucle)
+                                       │
+                                  al pulsar q
+                                       ▼
+                                "¡Hasta luego!"  y FIN
+```
+
+Cada paso del diagrama es una función que se explica justo debajo.
 
 ### `action_for` — traducir la tecla a una acción
 
@@ -723,6 +756,195 @@ No es un error: significa que el archivo usa **LF** (salto de línea de Linux) y
 - **Guardar meses favoritos** en un archivo: enseña a leer y escribir ficheros.
 - **Más pruebas**: que el día 1 nunca cae en la columna equivocada, para una lista de meses conocidos.
 - **Volver a MSVC** instalando el componente C++ de Visual Studio, y comprobar que todo sigue funcionando.
+
+---
+
+## 16. Errores de compilación frecuentes y qué significan
+
+### Cómo se lee un error de Rust
+
+Rust tiene fama (merecida) de dar buenos mensajes. Casi todos siguen el mismo patrón:
+
+```
+error[E0384]: cannot assign twice to immutable variable `column`   ← 1. QUÉ pasa
+ --> src\main.rs:3:5                                              ← 2. DÓNDE (archivo:línea:columna)
+  |
+2 |     let column = 0;                                           ← 3. EL TROZO de código señalado
+  |         ------ first assignment to `column`
+3 |     column += 1;
+  |     ^^^^^^^^^^^ cannot assign twice to immutable variable
+  |
+help: consider making this binding mutable                       ← 4. CÓMO arreglarlo
+  |
+2 |     let mut column = 0;
+  |         +++
+```
+
+Dos cosas que ahorran mucho tiempo:
+
+1. El error está **casi siempre en la línea que señala**, no en la siguiente.
+2. Varios errores seguidos suelen ser **el mismo problema repetido**: arregla el primero y suele desaparecer el resto.
+
+Los mensajes están **en inglés**, pero casi nunca hace falta traducirlos: el bloque `help:` te dice literalmente qué escribir. Y cada código tiene su explicación larga:
+
+```powershell
+rustc --explain E0384     # explicación completa (en inglés) de ese código
+cargo check               # comprueba el código SIN crear el .exe: más rápido que cargo build
+```
+
+### Los que más aparecen
+
+| Error | Qué significa |
+|---|---|
+| `E0384` cannot assign twice to immutable variable | Falta `mut` |
+| `E0308` mismatched types | Un tipo donde se espera otro (`i32` vs `u8`, `String` vs `&str`) |
+| `E0004` non-exhaustive patterns | Al `match` le falta un caso |
+| `E0369` binary operation cannot be applied | El tipo no se puede comparar: falta `#[derive(PartialEq)]` |
+| `E0432` unresolved import | Falta la dependencia en `Cargo.toml` |
+| `E0106` missing lifetime specifier | Se devuelve un `&str` sin decir de dónde sale |
+| `E0425` cannot find value in this scope | Nombre mal escrito, o variable usada antes de crearla |
+| `E0596` cannot borrow as mutable | Se usa `&mut` sobre algo declarado sin `mut` |
+| `warning: unused variable` | Aviso, no error: algo no se usa |
+
+### Ejemplos reales
+
+Los siguientes bloques son la **salida real** del compilador, provocada a propósito en un proyecto de pruebas.
+
+### Olvidar `mut`: la variable cambia
+
+error[E0384]: cannot assign twice to immutable variable `column`
+ --> src\main.rs:3:5
+  |
+2 |     let column = 0;
+  |         ------ first assignment to `column`
+3 |     column += 1;
+  |     ^^^^^^^^^^^ cannot assign twice to immutable variable
+  |
+help: consider making this binding mutable
+  |
+2 |     let mut column = 0;
+  |         +++
+
+La variable `column` se modifica después de crearse, pero se declaró sin `mut`.
+
+**Cómo se arregla:** Añadir `mut`: `let mut column = 0;`
+
+### Tipos que no encajan
+
+error[E0308]: mismatched types
+ --> src\main.rs:6:19
+  |
+6 |     let mes: u8 = pide_mes();
+  |              --   ^^^^^^^^^^ expected `u8`, found `i32`
+  |              |
+  |              expected due to this
+  |
+help: you can convert an `i32` to a `u8` and panic if the converted value doesn't fit
+  |
+6 |     let mes: u8 = pide_mes().try_into().unwrap();
+  |                             ++++++++++++++++++++
+
+La función devuelve `i32` y se guarda en una variable declarada `u8`. Rust no convierte solo: cada tipo es cada tipo.
+
+**Cómo se arregla:** Convertir explícitamente. Rust sugiere `try_into()` (convierte y comprueba); también existe la conversión directa `pide_mes() as u8`.
+
+### Falta un caso en el `match`
+
+error[E0004]: non-exhaustive patterns: `Mes::Marzo` not covered
+  --> src\main.rs:8:11
+   |
+ 8 |     match m {
+   |           ^ pattern `Mes::Marzo` not covered
+   |
+note: `Mes` defined here
+  --> src\main.rs:1:6
+   |
+ 1 | enum Mes {
+   |      ^^^
+...
+ 4 |     Marzo,
+   |     ----- not covered
+   = note: the matched value is of type `Mes`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+   |
+10 ~         Mes::Febrero => "FEBRERO",
+11 ~         Mes::Marzo => todo!(),
+   |
+
+El `match` no cubre todas las opciones de `Mes`. Rust exige que no se te olvide ninguna: así, si mañana añades un mes, el compilador te obliga a contemplarlo.
+
+**Cómo se arregla:** Añadir la rama que falta, o `_ => ...` si quieres ignorar el resto.
+
+### Comparar algo que no se puede comparar
+
+error[E0369]: binary operation `==` cannot be applied to type `Action`
+ --> src\main.rs:8:10
+  |
+8 |     if a == Action::Quit {
+  |        - ^^ ------------ Action
+  |        |
+  |        Action
+  |
+note: an implementation of `PartialEq` might be missing for `Action`
+ --> src\main.rs:1:1
+  |
+1 | enum Action {
+  | ^^^^^^^^^^^ must implement `PartialEq`
+help: consider annotating `Action` with `#[derive(PartialEq)]`
+  |
+1 + #[derive(PartialEq)]
+2 | enum Action {
+  |
+
+Para usar `==` el tipo tiene que implementar `PartialEq`. `Action` no lo tiene.
+
+**Cómo se arregla:** Añadir `#[derive(PartialEq)]` encima del enum (y `Debug` si además quieres imprimirlo con `{:?}`).
+
+### Falta la dependencia en `Cargo.toml`
+
+error[E0432]: unresolved import `console`
+ --> src\main.rs:1:5
+  |
+1 | use console::Key;
+  |     ^^^^^^^ use of unresolved module or unlinked crate `console`
+  |
+  = help: if you wanted to use a crate named `console`, use `cargo add console` to add it to your `Cargo.toml`
+
+Se usa una librería que no está declarada. El compilador no sabe qué es `console`.
+
+**Cómo se arregla:** Añadirla a `[dependencies]` o con `cargo add console`, y volver a compilar.
+
+### Devolver un texto prestado sin decir de dónde sale
+
+error[E0106]: missing lifetime specifier
+ --> src\main.rs:1:22
+  |
+1 | fn nombre(m: u32) -> &str {
+  |                      ^ expected named lifetime parameter
+  |
+  = help: this function's return type contains a borrowed value, but there is no value for it to be borrowed from
+help: consider using the `'static` lifetime, but this is uncommon unless you're returning a borrowed value from a `const` or a `static`
+  |
+1 | fn nombre(m: u32) -> &'static str {
+  |                       +++++++
+
+La función devuelve texto prestado (`&str`) pero Rust no sabe de dónde sale: no viene de ningún parámetro, así que no puede saber cuánto vive.
+
+**Cómo se arregla:** Devolver `&'static str` si el texto es literal y vive para siempre (es lo que hace `month_name`). Rust propone además otras dos salidas: recibir el dato prestado (`&u32`) o devolver un `String` propio.
+
+### Aviso: variable que no se usa (no es un error)
+
+warning: unused variable: `numero`
+ --> src\main.rs:2:9
+  |
+2 |     let numero = 5;
+  |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_numero`
+  |
+  = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+No es un error: el programa funciona. Rust avisa por si te has equivocado o te has dejado algo a medias.
+
+**Cómo se arregla:** Usarla, borrarla, o nombrarla con guion bajo (`_numero`) para decir «lo sé, no la uso».
 
 ---
 
