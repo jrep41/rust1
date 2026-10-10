@@ -103,6 +103,8 @@ fn main() {
     let mut month = Month::try_from(month_number as u8).expect("mes fuera de rango");
 
     loop {
+        // Limpiamos la pantalla antes de dibujar: son códigos de control del terminal.
+        print!("\x1b[2J\x1b[H");
         print_month(year, month, today);
         println!();
         println!("n = mes siguiente   p = mes anterior   q = salir");
