@@ -1,10 +1,30 @@
-// Versión 2: los datos del mes ya no están escritos a mano.
-// Usamos la librería chrono para saber cuántos días tiene y en qué día empieza.
+// Versión 3: el programa pregunta el año y el mes por teclado.
 
 use chrono::{Datelike, Months, NaiveDate};
+use std::io;
+
+/// Pide un número por teclado y repite hasta que el usuario escriba uno válido.
+fn read_number(prompt: &str) -> i32 {
+    loop {
+        println!("{}", prompt);
+
+        // Una caja de texto vacía donde guardar lo que escriba el usuario.
+        let mut line = String::new();
+
+        // read_line espera a que se pulse Enter y guarda todo, incluido el salto de línea.
+        io::stdin()
+            .read_line(&mut line)
+            .expect("no he podido leer del teclado");
+
+        // trim() quita espacios y saltos de línea; parse() intenta convertirlo en número.
+        match line.trim().parse::<i32>() {
+            Ok(number) => return number,
+            Err(_) => println!("Eso no es un número. Prueba otra vez."),
+        }
+    }
+}
 
 // Una función: un trozo de programa con nombre que podemos usar las veces que queramos.
-// Entre paréntesis van los datos que necesita (parámetros): el año y el mes.
 fn print_month(year: i32, month: u32) {
     // El día 1 de ese mes. "opt" significa que devuelve Option:
     // Some(fecha) si la fecha existe, None si no (por ejemplo, mes 13).
@@ -69,6 +89,14 @@ fn print_month(year: i32, month: u32) {
 }
 
 fn main() {
-    // Aquí decidimos qué mes queremos ver. Cambia estos dos números y prueba.
-    print_month(2026, 1);
+    println!("Calendario: escribe el año y el mes que quieres ver.");
+    let year = read_number("Año: ");
+    let month = read_number("Mes (1 a 12): ");
+
+    if month < 1 || month > 12 {
+        println!("El mes tiene que estar entre 1 y 12.");
+        return;
+    }
+
+    print_month(year, month as u32);
 }
