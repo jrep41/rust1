@@ -133,7 +133,6 @@ fn main() {
         println!("n o -> (flecha derecha) = mes siguiente");
         println!("p o <- (flecha izquierda) = mes anterior");
         println!("q = salir");
-        println!("Pulsa la tecla directamente, sin Enter.");
 
         // read_key espera a UNA tecla y la devuelve enseguida.
         let key = term.read_key().expect("no he podido leer el teclado");
