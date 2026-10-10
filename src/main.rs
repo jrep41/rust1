@@ -1,23 +1,26 @@
-// Versión 3: el programa pregunta el año y el mes por teclado.
+// Versión 4: ya podemos movernos de mes en mes sin salir del programa.
 
 use chrono::{Datelike, Months, NaiveDate};
 use std::io;
 
+/// Lee una línea de texto del teclado y la devuelve limpia, sin el salto de línea.
+fn read_line(prompt: &str) -> String {
+    println!("{}", prompt);
+
+    let mut line = String::new();
+    io::stdin()
+        .read_line(&mut line)
+        .expect("no he podido leer del teclado");
+
+    // trim() quita espacios y el salto de línea; to_string() lo copia a un String nuevo.
+    line.trim().to_string()
+}
+
 /// Pide un número por teclado y repite hasta que el usuario escriba uno válido.
 fn read_number(prompt: &str) -> i32 {
     loop {
-        println!("{}", prompt);
-
-        // Una caja de texto vacía donde guardar lo que escriba el usuario.
-        let mut line = String::new();
-
-        // read_line espera a que se pulse Enter y guarda todo, incluido el salto de línea.
-        io::stdin()
-            .read_line(&mut line)
-            .expect("no he podido leer del teclado");
-
-        // trim() quita espacios y saltos de línea; parse() intenta convertirlo en número.
-        match line.trim().parse::<i32>() {
+        // Una función puede apoyarse en otra: aquí reutilizamos read_line.
+        match read_line(prompt).parse::<i32>() {
             Ok(number) => return number,
             Err(_) => println!("Eso no es un número. Prueba otra vez."),
         }
@@ -90,13 +93,42 @@ fn print_month(year: i32, month: u32) {
 
 fn main() {
     println!("Calendario: escribe el año y el mes que quieres ver.");
-    let year = read_number("Año: ");
-    let month = read_number("Mes (1 a 12): ");
+    let mut year = read_number("Año: ");
+    let mut month = read_number("Mes (1 a 12): ");
 
     if month < 1 || month > 12 {
         println!("El mes tiene que estar entre 1 y 12.");
         return;
     }
 
-    print_month(year, month as u32);
+    // Bucle principal: pintamos el mes y preguntamos qué hacer a continuación.
+    loop {
+        print_month(year, month as u32);
+        println!();
+        println!("n = mes siguiente   p = mes anterior   q = salir");
+
+        let command = read_line("> ");
+
+        // match compara el texto escrito con cada opción; "_" recoge lo que no encaje.
+        match command.as_str() {
+            "n" => {
+                month += 1;
+                if month > 12 {
+                    month = 1;
+                    year += 1;
+                }
+            }
+            "p" => {
+                month -= 1;
+                if month < 1 {
+                    month = 12;
+                    year -= 1;
+                }
+            }
+            "q" => break,
+            _ => println!("No te he entendido. Usa n, p o q."),
+        }
+    }
+
+    println!("¡Hasta luego!");
 }
