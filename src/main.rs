@@ -1,7 +1,8 @@
-// Versión 4: ya podemos movernos de mes en mes sin salir del programa.
+// Versión 5: marcamos el día de hoy y usamos una sola librería de fechas: time.
+// (chrono necesitaba para esto herramientas de MinGW que en este equipo faltan.)
 
-use chrono::{Datelike, Months, NaiveDate};
 use std::io;
+use time::{Date, Month, OffsetDateTime};
 
 /// Lee una línea de texto del teclado y la devuelve limpia, sin el salto de línea.
 fn read_line(prompt: &str) -> String {
@@ -27,101 +28,96 @@ fn read_number(prompt: &str) -> i32 {
     }
 }
 
-// Una función: un trozo de programa con nombre que podemos usar las veces que queramos.
-fn print_month(year: i32, month: u32) {
-    // El día 1 de ese mes. "opt" significa que devuelve Option:
-    // Some(fecha) si la fecha existe, None si no (por ejemplo, mes 13).
-    let first_day = NaiveDate::from_ymd_opt(year, month, 1).expect("fecha no válida");
+/// Nombre del mes en español.
+fn month_name(month: Month) -> &'static str {
+    match month {
+        Month::January => "ENERO",
+        Month::February => "FEBRERO",
+        Month::March => "MARZO",
+        Month::April => "ABRIL",
+        Month::May => "MAYO",
+        Month::June => "JUNIO",
+        Month::July => "JULIO",
+        Month::August => "AGOSTO",
+        Month::September => "SEPTIEMBRE",
+        Month::October => "OCTUBRE",
+        Month::November => "NOVIEMBRE",
+        Month::December => "DICIEMBRE",
+    }
+}
 
-    // El día 1 del mes siguiente: la distancia entre ambos es el número de días del mes.
-    let next_month = first_day
-        .checked_add_months(Months::new(1))
-        .expect("mes fuera de rango");
-    let days_in_month = (next_month - first_day).num_days();
+// Dibuja un mes. "today" es una tupla con la fecha de hoy: (año, mes, día).
+fn print_month(year: i32, month: Month, today: (i32, Month, u8)) {
+    // Cuántos días tiene el mes. time ya sabe los años bisiestos.
+    let days_in_month = month.length(year);
 
-    // Nombre del mes en español. "match" compara el valor y elige una rama.
-    let month_name = match month {
-        1 => "ENERO",
-        2 => "FEBRERO",
-        3 => "MARZO",
-        4 => "ABRIL",
-        5 => "MAYO",
-        6 => "JUNIO",
-        7 => "JULIO",
-        8 => "AGOSTO",
-        9 => "SEPTIEMBRE",
-        10 => "OCTUBRE",
-        11 => "NOVIEMBRE",
-        12 => "DICIEMBRE",
-        _ => "DESCONOCIDO",
-    };
+    // El día 1 de ese mes.
+    let first_day = Date::from_calendar_date(year, month, 1).expect("fecha no válida");
 
-    // Huecos vacíos antes del día 1: 0 = lunes, 1 = martes, ... 6 = domingo.
-    let blank_cells = first_day.weekday().num_days_from_monday();
+    // Huecos vacíos antes del día 1: lunes = 0, martes = 1, ... domingo = 6.
+    let blank_cells = first_day.weekday().number_days_from_monday();
 
-    // Título centrado y fila con los nombres de los días.
-    let title = format!("{} {}", month_name, year);
+    let title = format!("{} {}", month_name(month), year);
     println!("{:^21}", title);
     println!(" Lu Ma Mi Ju Vi Sá Do");
 
-    // "column" lleva la cuenta de en qué columna de la semana vamos (0 a 6).
     let mut column = 0;
-
-    // Huecos vacíos antes del día 1.
     for _ in 0..blank_cells {
         print!("   ");
         column += 1;
     }
 
-    // Pintamos los días, uno detrás de otro.
     for day in 1..=days_in_month {
-        print!("{:>3}", day);
-        column += 1;
+        // Si este día es hoy, lo marcamos con un asterisco en lugar del hueco.
+        if year == today.0 && month == today.1 && day == today.2 {
+            print!("*{:>2}", day);
+        } else {
+            print!("{:>3}", day);
+        }
 
-        // Al llegar al domingo (7 columnas) bajamos de línea.
+        column += 1;
         if column == 7 {
             println!();
             column = 0;
         }
     }
 
-    // Si el mes no termina en domingo, cerramos la última línea.
     if column != 0 {
         println!();
     }
 }
 
 fn main() {
-    println!("Calendario: escribe el año y el mes que quieres ver.");
-    let mut year = read_number("Año: ");
-    let mut month = read_number("Mes (1 a 12): ");
+    // La fecha de hoy, en la zona horaria del equipo.
+    let now = OffsetDateTime::now_local().expect("no he podido obtener la fecha local");
+    let today = (now.year(), now.month(), now.day());
 
-    if month < 1 || month > 12 {
+    println!("Calendario. Hoy es {}.", now.date());
+    let mut year = read_number("Año: ");
+    let month_number = read_number("Mes (1 a 12): ");
+
+    if month_number < 1 || month_number > 12 {
         println!("El mes tiene que estar entre 1 y 12.");
         return;
     }
+    let mut month = Month::try_from(month_number as u8).expect("mes fuera de rango");
 
-    // Bucle principal: pintamos el mes y preguntamos qué hacer a continuación.
     loop {
-        print_month(year, month as u32);
+        print_month(year, month, today);
         println!();
         println!("n = mes siguiente   p = mes anterior   q = salir");
 
         let command = read_line("> ");
-
-        // match compara el texto escrito con cada opción; "_" recoge lo que no encaje.
         match command.as_str() {
             "n" => {
-                month += 1;
-                if month > 12 {
-                    month = 1;
+                month = month.next();
+                if month == Month::January {
                     year += 1;
                 }
             }
             "p" => {
-                month -= 1;
-                if month < 1 {
-                    month = 12;
+                month = month.previous();
+                if month == Month::December {
                     year -= 1;
                 }
             }
